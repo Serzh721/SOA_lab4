@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation=" http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd  http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd">
+    <http:listener-config name="soa-4-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="2323" protocol="HTTP" />
+    </http:listener-config>
+    <apikit:config name="soa-4-config" api="resource::2c26947a-b7cd-44eb-a561-d3a921340fe6:soa-4:1.1.8:oas:zip:soa-4.json" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="8c5fc199-80a9-4393-879f-bc97736dfe22">
+        <wsc:connection wsdlLocation="http://localhost:8080/SoapFlatServiceImpl?wsdl" service="SoapFlatServiceImplService" port="SoapFlatServiceImplPort" address="http://localhost:8080/SoapFlatServiceImpl">
+            <wsc:custom-transport-configuration>
+                <wsc:default-http-transport-configuration timeout="50000" />
+            </wsc:custom-transport-configuration>
+            <wsc:web-service-security actor="http://schemas.xmlsoap.org/soap/actor/next" mustUnderstand="false" />
+        </wsc:connection>
+    </wsc:config>
+    <flow name="soa-4-main">
+        <http:listener config-ref="soa-4-httpListenerConfig" path="/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+                <http:headers><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="soa-4-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="soa-4-console">
+        <http:listener config-ref="soa-4-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="soa-4-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform>
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="put:\api\flats\(id):application\xml:soa-4-config">
+        <logger level="INFO" message="put:\api\flats\(id):application\xml:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="8df6d4f8-8160-4cbe-8bb5-a5c73280495d">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#modifyFlat: payload mapObject (val, key) -> {
+		arg0: attributes.uriParams.id,
+		arg1: val
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume doc:name="Consume" doc:id="f69ad39c-add2-4f57-9ebb-d11a1ddabeab" config-ref="Web_Service_Consumer_Config" operation="modifyFlat" />
+        <ee:transform doc:name="Transform Message" doc:id="786e35fc-48f1-457e-85d9-63ae1e42e704">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flat: payload.body.ns0#modifyFlatResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="delete:\api\flats\(id):soa-4-config">
+        <logger level="INFO" message="delete:\api\flats\(id):soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="12da8056-854d-4558-bf5b-2888178d7480">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#deleteFlat: {
+		arg0: attributes.uriParams.id
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="deleteFlat" doc:name="Consume" doc:id="0f6e22b1-8467-45ae-8c65-72790004511c" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="55793954-4969-48a4-bcce-40e3fa657751">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+ns ns0 http://endpoint.soap/
+---
+null]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\api\flats:soa-4-config">
+        <logger level="INFO" message="get:\api\flats:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="0cf67377-5901-481b-bd1f-7b07f1bf9e2c">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml skipNullOn="everywhere"
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#getFlats: {
+		arg0: {
+			pageNumber: attributes.queryParams.pageNumber,
+			pageSize: attributes.queryParams.pageSize,
+			id: attributes.queryParams.id,
+			name: attributes.queryParams.name,
+			coordinates: attributes.queryParams.coordinates,
+			creationDate: attributes.queryParams.creationDate,
+			area: attributes.queryParams.area,
+			numberOfRooms: attributes.queryParams.numberOfRooms,
+			price: attributes.queryParams.price,
+			kitchenArea: attributes.queryParams.kitchenArea,
+			view: attributes.queryParams.view,
+			house: attributes.queryParams.house,
+			orderBy: attributes.queryParams.orderBy
+		}
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="getFlats" doc:name="Consume" doc:id="496e7d7a-edf1-4911-a958-6afa6b5bb505" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="f4f97c3f-c512-4d3b-9066-61792f261dfc">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flatList: payload.body.ns0#getFlatsResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\api\flats\namescontain:soa-4-config">
+        <logger level="INFO" message="get:\api\flats\namescontain:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="b2ae2338-35b5-48f9-be81-c1b41e1815a9">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#getNamesContain: {
+		arg0: attributes.queryParams.string
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="getNamesContain" doc:name="Consume" doc:id="09e3198a-f7e9-4095-8986-17f73d0b4f4a" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="71993e42-1aa6-4e9d-aa6c-32c301c29461">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flatList: payload.body.ns0#getNamesContainResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\api\flats\namesstart:soa-4-config">
+        <logger level="INFO" message="get:\api\flats\namesstart:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="81d41727-e6f3-4e55-b3e7-6e9b1171bc5a">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#getNamesStart: {
+		arg0: attributes.queryParams.string
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="getNamesStart" doc:name="Consume" doc:id="d17609ee-5b47-4972-9491-af707a14976a" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="6bff205f-f1c0-4109-a812-5fdcaa3b2914">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flatList: payload.body.ns0#getNamesStartResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\api\flats\pricelower:soa-4-config">
+        <logger level="INFO" message="get:\api\flats\pricelower:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="54089814-5b29-455f-92da-7557fbe9e54c">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#getNumberPriceLower: {
+		arg0: attributes.queryParams.price
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="getNumberPriceLower" doc:name="Consume" doc:id="98741ee1-0d4f-4966-9c2b-2bea788c7658" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="f7a0e6b0-711c-4b9c-a31a-2667fa5a40d9">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+string: payload.body.ns0#getNumberPriceLowerResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="get:\api\flats\(id):soa-4-config">
+        <logger level="INFO" message="get:\api\flats\(id):soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="9a896a95-3933-4076-8de5-b698941586bd">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#getFlat: {
+		arg0: attributes.uriParams.id
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume operation="getFlat" doc:name="Consume" doc:id="6df0f655-22d3-4235-910a-334bded76e7e" config-ref="Web_Service_Consumer_Config" />
+        <ee:transform doc:name="Transform Message" doc:id="9404d998-6823-4d38-9cee-aa1249089c7c">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flat: payload.body.ns0#getFlatResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+    <flow name="post:\api\flats:application\xml:soa-4-config">
+        <logger level="INFO" message="post:\api\flats:application\xml:soa-4-config" />
+        <ee:transform doc:name="Transform Message" doc:id="1c8351ed-f1df-4fca-87a1-5b48de2f42b2">
+            <ee:message>
+                <ee:set-payload><![CDATA[output application/xml
+ns ns0 http://endpoint.soap/
+---
+{
+	ns0#addFlat: payload mapObject (val, key) -> {
+		arg0: val
+	}
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <wsc:consume doc:name="Consume" doc:id="15510a7c-31bb-48c4-a70e-590f78ce1d96" config-ref="Web_Service_Consumer_Config" operation="addFlat" />
+        <ee:transform doc:name="Transform Message" doc:id="aa56e644-1836-4247-b249-41a8a5b71c57">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/xml
+ns ns0 http://endpoint.soap/
+---
+flat: payload.body.ns0#addFlatResponse.return]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+</mule>
